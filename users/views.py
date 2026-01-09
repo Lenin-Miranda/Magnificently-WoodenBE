@@ -37,6 +37,7 @@ class CookieTokenObtainPairView(TokenObtainPairView):
     '''
     Return access + refresh tokens in HttpOnly cookies
     '''
+    permission_classes = [permissions.AllowAny]
     serializer_class = TokenObtainPairSerializer
 
     def post(self, request, *args, **kwargs):
@@ -46,25 +47,33 @@ class CookieTokenObtainPairView(TokenObtainPairView):
         access_token = data.get('access')
         refresh_token = data.get('refresh')
 
-        # Set HttpOnly cookies
-        response.set_cookie(
-            settings.SIMPLE_JWT["AUTH_COOKIE"],
-            value=access_token,
-            httponly=True,
-            secure=settings.SIMPLE_JWT.get("AUTH_COOKIE_SECURE", False),
-            samesite='Lax',
-            max_age=60 * 30,
-        )
+        jwt_settings = getattr(settings, 'SIMPLE_JWT', {})
+        access_cookie_name = jwt_settings.get('AUTH_COOKIE', 'access_token')
+        refresh_cookie_name = jwt_settings.get('REFRESH_COOKIE_NAME', 'refresh_token')
+        access_secure = jwt_settings.get('AUTH_COOKIE_SECURE', not settings.DEBUG)
+        refresh_secure = jwt_settings.get('AUTH_COOKIE_SECURE', access_secure)
+        access_samesite = jwt_settings.get('AUTH_COOKIE_SAMESITE', 'Lax')
+        refresh_samesite = jwt_settings.get('AUTH_COOKIE_SAMESITE', access_samesite)
 
-        # Save refresh token too (optional)
-        response.set_cookie(
-            key='refresh_token',
-            value=refresh_token,
-            httponly=True,
-            secure=settings.SIMPLE_JWT['AUTH_COOKIE_SECURE'],
-            samesite=settings.SIMPLE_JWT["AUTH_COOKIE_SAMESITE"],
-            max_age=60 * 60 * 24,
-        )
+        if access_token:
+            response.set_cookie(
+                access_cookie_name,
+                value=access_token,
+                httponly=True,
+                secure=access_secure,
+                samesite=access_samesite,
+                max_age=60 * 30,
+            )
+
+        if refresh_token:
+            response.set_cookie(
+                refresh_cookie_name,
+                value=refresh_token,
+                httponly=True,
+                secure=refresh_secure,
+                samesite=refresh_samesite,
+                max_age=60 * 60 * 24,
+            )
 
         # Don't return tokens in response body
         response.data = {'detail': 'Login successful'}
@@ -75,9 +84,15 @@ class LogoutView(APIView):
     '''
     Logout by deleting the auth cookies
     '''
+    permission_classes = [permissions.AllowAny]
+
     def post(self, request):
-        response = Response({"message": 'Logout successful'})
-        response.delete_cookie("access_token")
-        response.delete_cookie('refresh_token')
+        jwt_settings = getattr(settings, 'SIMPLE_JWT', {})
+        access_cookie_name = jwt_settings.get('AUTH_COOKIE', 'access_token')
+        refresh_cookie_name = jwt_settings.get('REFRESH_COOKIE_NAME', 'refresh_token')
+
+        response = Response({"message": 'Logout successful'}, status=status.HTTP_200_OK)
+        response.delete_cookie(access_cookie_name)
+        response.delete_cookie(refresh_cookie_name)
         return response
     

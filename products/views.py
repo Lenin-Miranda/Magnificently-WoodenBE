@@ -32,13 +32,11 @@ class ProductCreateView(generics.CreateAPIView):
 class ProductUpdateView(generics.UpdateAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
-    lookup_field = 'slug'
     permission_classes = [IsAdminUser]
     lookup_field = 'id'
 
 class ProductDeleteView(generics.DestroyAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
-    lookup_field = 'slug'
     permission_classes = [IsAdminUser]
     lookup_field = 'id'
