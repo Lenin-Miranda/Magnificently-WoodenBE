@@ -1,6 +1,8 @@
 from django.db import models
 from django.contrib.auth import get_user_model
 from products.models import Product
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 User = get_user_model()
 
@@ -39,6 +41,8 @@ class CartItem(models.Model):
 
     quantity = models.PositiveBigIntegerField(default=1) # Quantity of the product
     added_at = models.DateTimeField(auto_now_add=True)
+    # Frozen price: saves product price at the moment of adding to cart
+    price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
 
     class Meta:
         # A product can only be 1 time in the cart
@@ -50,5 +54,13 @@ class CartItem(models.Model):
     
     @property
     def subtotal(self):
-        return self.product.price * self.quantity
-    
+        # Use frozen price instead of current product price
+        return self.price * self.quantity
+
+
+# Signal: Auto-create cart when user is created
+@receiver(post_save, sender=User)
+def create_user_cart(sender, instance, created, **kwargs):
+    """Automatically create a cart for new users"""
+    if created:
+        Cart.objects.create(user=instance)
