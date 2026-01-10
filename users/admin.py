@@ -11,14 +11,17 @@ class UserAdmin(BaseUserAdmin):
     list_display = ['username', 'email', 'first_name', 'last_name', 'is_staff', 'date_joined']
     list_filter = ['is_staff', 'is_superuser', 'is_active']
     search_fields = ['username', 'email', 'first_name', 'last_name']
+    # raw_id_fields/list_select_related referencing 'user' removed — not fields on User model
+    ordering = ['-date_joined', 'username']
+    readonly_fields = ['date_joined', 'last_login']
     
     # Agregar phone_number a los fieldsets
     fieldsets = BaseUserAdmin.fieldsets + (
-        ('Información Adicional', {'fields': ('phone_number',)}),
+        ('Additional Information', {'fields': ('phone_number',)}),
     )
     
     add_fieldsets = BaseUserAdmin.add_fieldsets + (
-        ('Información Adicional', {'fields': ('phone_number',)}),
+        ('Additional Information', {'fields': ('phone_number',)}),
     )
 
 

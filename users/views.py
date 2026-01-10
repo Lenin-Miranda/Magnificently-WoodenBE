@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from .serializes import UserSerializer, RegisterSerializer
+from .serializer import UserSerializer, RegisterSerializer
 
 User = get_user_model()
 

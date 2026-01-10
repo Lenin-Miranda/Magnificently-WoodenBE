@@ -18,6 +18,7 @@ class CategoryAdmin(admin.ModelAdmin):
 class ProductAdmin(admin.ModelAdmin):
     list_display = ('name', 'price', 'stock', 'is_active', 'is_featured', 'created_at')
     list_filter = ('is_active', 'is_featured', 'category')
+    list_select_related = ('category',)
     search_fields = ('name', 'description')
     prepopulated_fields = {'slug': ('name',)}
     inlines = [ProductImageInline]

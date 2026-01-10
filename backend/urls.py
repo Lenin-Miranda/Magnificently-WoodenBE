@@ -23,6 +23,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/products/', include('products.urls')),
     path('api/users/', include('users.urls')),
+    path('api/orders/', include(('orders.urls', 'orders'), namespace='orders'),),
 ]
 
 # Servir archivos media en desarrollo
