@@ -22,12 +22,14 @@ class Product(models.Model):
     slug = models.SlugField(max_length=200, unique=True, blank=True)
     description = models.TextField(blank=True)
     price = models.DecimalField(max_digits=8, decimal_places=2)
-    stock = models.PositiveIntegerField(default=0)
+    inStock = models.PositiveIntegerField(default=0)
 
     main_image = models.ImageField(upload_to='products/', blank=True, null=True)
 
-    is_active = models.BooleanField(default=True)
-    is_featured = models.BooleanField(default=False)
+    isActive = models.BooleanField(default=True)
+    isFeatured = models.BooleanField(default=False)
+    rating = models.DecimalField(max_digits=3, decimal_places=2, default=0.0)
+    status = models.CharField(max_length=50, default='available')
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

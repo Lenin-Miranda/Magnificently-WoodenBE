@@ -7,12 +7,12 @@ from .serializer import ProductSerializer, CategorySerializer
 # ------ PUBLIC VIEWS ------
 
 class ProductViewSet(generics.ListCreateAPIView):
-    queryset = Product.objects.filter(is_active=True)
+    queryset = Product.objects.filter(isActive=True)
     serializer_class = ProductSerializer
     permission_classes = [AllowAny]
 
 class ProductDetailView(generics.RetrieveAPIView):
-    queryset = Product.objects.filter(is_active=True)
+    queryset = Product.objects.filter(isActive=True)
     serializer_class = ProductSerializer
     lookup_field = 'slug'
     permission_classes = [AllowAny]
