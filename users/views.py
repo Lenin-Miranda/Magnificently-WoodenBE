@@ -6,13 +6,16 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from .serializer import UserSerializer, RegisterSerializer
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
+from .serializer import UserSerializer, RegisterSerializer, EmailTokenObtainPairSerializer
 
 User = get_user_model()
 
 
 
 
+@method_decorator(csrf_exempt, name='dispatch')
 class RegisterView(generics.CreateAPIView):
     '''
     Register a new user
@@ -33,12 +36,13 @@ class MeView(APIView):
     
 
 
+@method_decorator(csrf_exempt, name='dispatch')
 class CookieTokenObtainPairView(TokenObtainPairView):
     '''
     Return access + refresh tokens in HttpOnly cookies
     '''
     permission_classes = [permissions.AllowAny]
-    serializer_class = TokenObtainPairSerializer
+    serializer_class = EmailTokenObtainPairSerializer
 
     def post(self, request, *args, **kwargs):
         response = super().post(request=request, *args, **kwargs)
