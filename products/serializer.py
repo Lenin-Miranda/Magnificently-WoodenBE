@@ -12,7 +12,11 @@ class CategorySerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'slug']
 
 class ProductSerializer(serializers.ModelSerializer):
-    category = CategorySerializer(read_only=True)
+    category = serializers.PrimaryKeyRelatedField(
+        queryset=Category.objects.all(),
+        required=True
+    )
+    slug = serializers.SlugField(read_only=True)
     images = ProductImageSerializer(many=True, read_only=True)
 
     class Meta:
@@ -22,3 +26,9 @@ class ProductSerializer(serializers.ModelSerializer):
             'main_image', 'isActive', 'isFeatured', 'rating', 'status',
             'created_at', 'updated_at', 'category', 'images'
         ]
+
+    def to_representation(self, instance):
+        """On read, return full category object instead of just the ID"""
+        representation = super().to_representation(instance)
+        representation['category'] = CategorySerializer(instance.category).data if instance.category else None
+        return representation
