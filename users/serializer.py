@@ -6,9 +6,22 @@ User = get_user_model()
 
 class UserSerializer(serializers.ModelSerializer):
     '''return basic user info /me/'''
+    role = serializers.SerializerMethodField()
+    
+    def get_role(self, obj):
+        """Return user role as string"""
+        if obj.is_superuser:
+            return 'superuser'
+        elif obj.is_staff:
+            return 'staff'
+        else:
+            return 'user'
+    
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'phone_number']
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'phone_number', 'role']
+    
+
 
 class RegisterSerializer(serializers.ModelSerializer):
     '''register new user'''
