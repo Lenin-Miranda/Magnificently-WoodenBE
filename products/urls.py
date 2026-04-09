@@ -5,7 +5,10 @@ from .views import (
     CategoryViewSet,
     ProductCreateView,
     ProductUpdateView,
-    ProductDeleteView,)
+    ProductDeleteView,
+    ProductImageUploadView,
+    ProductImageDeleteView,
+)
 
 urlpatterns = [
     # PUBLIC
@@ -17,6 +20,10 @@ urlpatterns = [
     path("admin/create/", ProductCreateView.as_view(), name='product-create'),
     path("admin/update/<int:id>/", ProductUpdateView.as_view(), name='product-update'),
     path("admin/delete/<int:id>/", ProductDeleteView.as_view(), name='product-delete'),
+
+    # ADMIN: IMAGES
+    path("admin/<int:product_id>/images/", ProductImageUploadView.as_view(), name='product-image-upload'),
+    path("admin/images/<int:id>/delete/", ProductImageDeleteView.as_view(), name='product-image-delete'),
 ]
 
 
