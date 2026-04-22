@@ -6,7 +6,12 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
-from .serializer import UserSerializer, RegisterSerializer, EmailTokenObtainPairSerializer
+from .serializer import (
+    UserSerializer,
+    RegisterSerializer,
+    UserProfileSerializer,
+    EmailTokenObtainPairSerializer,
+)
 
 User = get_user_model()
 
@@ -48,7 +53,25 @@ def _set_auth_cookies(response, access_token=None, refresh_token=None):
             max_age=refresh_cookie_age,
         )
 
+class GetUserView(generics.RetrieveAPIView):
+    '''
+    Get user by ID (for admin use)
+    '''
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [permissions.IsAdminUser]
+    
 
+# Edit User Profile View
+class UserProfileView(generics.RetrieveUpdateAPIView):
+    '''
+    Retrieve or update the current user's profile
+    '''
+    serializer_class = UserProfileSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_object(self):
+        return self.request.user
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -70,7 +93,6 @@ class MeView(APIView):
         serializer = UserSerializer(request.user)
         return Response(serializer.data)
     
-
 
 @method_decorator(csrf_exempt, name='dispatch')
 class CookieTokenObtainPairView(TokenObtainPairView):

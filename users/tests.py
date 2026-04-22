@@ -4,6 +4,7 @@ from rest_framework import status
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.urls import reverse
+from .models import UserProfile
 
 User = get_user_model()
 
@@ -41,6 +42,7 @@ class UserAuthenticationAPITest(APITestCase):
         self.login_url = reverse('users:login')
         self.refresh_url = reverse('users:token_refresh')
         self.me_url = reverse('users:me')
+        self.profile_url = reverse('users:profile')
         
         self.user_data = {
             'username': 'testuser',
@@ -123,8 +125,52 @@ class UserAuthenticationAPITest(APITestCase):
         response = self.client.get(self.me_url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['username'], 'testuser')
+        self.assertEqual(response.data['bio'], '')
+        self.assertEqual(response.data['location'], '')
     
     def test_get_user_profile_unauthenticated(self):
         """Test que usuario no autenticado no puede acceder a /me/"""
         response = self.client.get(self.me_url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_update_authenticated_user_profile(self):
+        """Test para editar el perfil del usuario autenticado"""
+        user = User.objects.create_user(
+            username='testuser',
+            email='test@example.com',
+            password='testpass123',
+            first_name='Old',
+            last_name='Name',
+            phone_number='1111111111'
+        )
+        self.client.force_authenticate(user=user)
+
+        payload = {
+            'first_name': 'Jane',
+            'last_name': 'Doe',
+            'email': 'jane@example.com',
+            'username': 'janedoe',
+            'bio': 'Full stack builder',
+            'phone_number': '2223334444',
+            'location': 'Los Angeles, CA'
+        }
+
+        response = self.client.patch(self.profile_url, payload, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        user.refresh_from_db()
+        profile = UserProfile.objects.get(user=user)
+
+        self.assertEqual(user.first_name, 'Jane')
+        self.assertEqual(user.last_name, 'Doe')
+        self.assertEqual(user.email, 'jane@example.com')
+        self.assertEqual(user.username, 'janedoe')
+        self.assertEqual(user.phone_number, '2223334444')
+        self.assertEqual(profile.bio, 'Full stack builder')
+        self.assertEqual(profile.location, 'Los Angeles, CA')
+
+    def test_update_profile_requires_authentication(self):
+        """Test que el perfil requiere autenticación para editarse"""
+        response = self.client.patch(self.profile_url, {'first_name': 'Jane'}, format='json')
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)

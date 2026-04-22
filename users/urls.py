@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import RegisterView, CookieTokenObtainPairView, CookieTokenRefreshView, LogoutView, MeView
+from .views import RegisterView, CookieTokenObtainPairView, CookieTokenRefreshView, LogoutView, MeView, UserProfileView
 
 app_name = 'users'
 
@@ -12,4 +12,5 @@ urlpatterns = [
     
     # Usuario actual
     path('me/', MeView.as_view(), name='me'),
+    path('profile/', UserProfileView.as_view(), name='profile'),
 ]
