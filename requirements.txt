@@ -1,0 +1,6 @@
+Djano>=4.0
+djangorestframework
+django-cors-headers
+psycopg2-binary
+djangorestframework-simplejwt
+Pillow

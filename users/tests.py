@@ -1,6 +1,7 @@
 from django.test import TestCase
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 
@@ -38,6 +39,7 @@ class UserAuthenticationAPITest(APITestCase):
         self.client = APIClient()
         self.register_url = reverse('users:register')
         self.login_url = reverse('users:login')
+        self.refresh_url = reverse('users:token_refresh')
         self.me_url = reverse('users:me')
         
         self.user_data = {
@@ -71,6 +73,41 @@ class UserAuthenticationAPITest(APITestCase):
         }
         response = self.client.post(self.login_url, login_data)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['detail'], 'Login successful')
+        self.assertIn(settings.SIMPLE_JWT['AUTH_COOKIE'], response.cookies)
+        self.assertIn(settings.SIMPLE_JWT['REFRESH_COOKIE_NAME'], response.cookies)
+
+        access_cookie = response.cookies[settings.SIMPLE_JWT['AUTH_COOKIE']]
+        refresh_cookie = response.cookies[settings.SIMPLE_JWT['REFRESH_COOKIE_NAME']]
+
+        self.assertEqual(
+            int(access_cookie['max-age']),
+            int(settings.SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'].total_seconds()),
+        )
+        self.assertEqual(
+            int(refresh_cookie['max-age']),
+            int(settings.SIMPLE_JWT['REFRESH_TOKEN_LIFETIME'].total_seconds()),
+        )
+
+    def test_refresh_uses_refresh_cookie(self):
+        """Test que el refresh funciona usando la cookie HttpOnly"""
+        User.objects.create_user(
+            username='testuser',
+            email='test@example.com',
+            password='testpass123'
+        )
+
+        login_data = {
+            'username': 'testuser',
+            'password': 'testpass123'
+        }
+        self.client.post(self.login_url, login_data)
+
+        response = self.client.post(self.refresh_url, {})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['detail'], 'Token refreshed successfully')
+        self.assertIn(settings.SIMPLE_JWT['AUTH_COOKIE'], response.cookies)
     
     def test_get_user_profile(self):
         """Test para obtener perfil de usuario autenticado"""

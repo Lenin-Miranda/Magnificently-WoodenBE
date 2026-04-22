@@ -6,7 +6,7 @@ from products.serializer import ProductSerializer
 
 class CartItemSerializer(serializers.ModelSerializer):
     product = ProductSerializer(read_only=True)
-    product_id = serializers.PrimaryKeyRelatedField(
+    productId = serializers.PrimaryKeyRelatedField(
         queryset=Product.objects.all(),
         source='product',
         write_only=True
@@ -15,7 +15,7 @@ class CartItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CartItem
-        fields = ['id', 'product', 'product_id', 'quantity', 'price', 'subtotal', 'added_at']
+        fields = ['id', 'product', 'productId', 'quantity', 'price', 'subtotal', 'added_at']
         read_only_fields = ['id', 'price', 'subtotal', 'added_at']
 
     def validate(self, data):
