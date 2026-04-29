@@ -2,11 +2,16 @@ from rest_framework import generics, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from django.db import transaction
-import uuid
 from .models import Cart, CartItem
 from .serializers import CartSerializer, CartItemSerializer, CartItemUpdateSerializer, CheckoutSerializer
-from orders.models import Order, OrderItem
+from orders.serializer import OrderSerializer
+from orders.services import (
+    EmptyCartError,
+    InsufficientStockError,
+    OrderCreationError,
+    UnavailableProductError,
+    create_order_from_cart,
+)
 
 
 class CartDetailView(generics.RetrieveAPIView):
@@ -42,11 +47,13 @@ class CartItemUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
         return CartItem.objects.filter(cart__user=self.request.user)
     
     def perform_update(self, serializer):
-        # If quantity is 0, the serializer will delete the item
-        instance = serializer.save()
-        # If item was deleted (quantity was 0), return 204
-        if not CartItem.objects.filter(id=instance.id).exists():
+        serializer.save()
+
+    def update(self, request, *args, **kwargs):
+        response = super().update(request, *args, **kwargs)
+        if request.data.get('quantity') in (0, '0'):
             return Response(status=status.HTTP_204_NO_CONTENT)
+        return response
 
 
 class CartClearView(APIView):
@@ -66,79 +73,28 @@ class CreateOrderFromCartView(APIView):
     permission_classes = [IsAuthenticated]
     
     def post(self, request):
-        # Validate checkout data using serializer
         serializer = CheckoutSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
-        
-        # Extract validated data
-        shipping_address = data['shipping_address']
-        billing_address = data['billing_address']
-        shipping_cost = data['shipping_cost']
-        tax = data['tax']
-        
+
         try:
-            cart = request.user.cart
+            order = create_order_from_cart(
+                user=request.user,
+                shipping_address=data['shipping_address'],
+                billing_address=data['billing_address'],
+                shipping_cost=data['shipping_cost'],
+                tax=data['tax'],
+            )
         except Cart.DoesNotExist:
             return Response({'error': 'Cart not found'}, status=status.HTTP_404_NOT_FOUND)
-        
-        # Use atomic transaction to ensure data integrity
-        try:
-            with transaction.atomic():
-                # Lock cart items and products to prevent race conditions
-                items = cart.items.select_related('product').select_for_update().all()
+        except (EmptyCartError, InsufficientStockError, UnavailableProductError) as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        except OrderCreationError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return Response(
+                {'error': 'Failed to create order'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
-                if not items.exists():
-                    return Response({'error': 'Cart is empty'}, status=status.HTTP_400_BAD_REQUEST)
-                
-                # Validate stock for all items before creating order
-                for item in items:
-                    if hasattr(item.product, 'stock') and item.product.stock < item.quantity:
-                        return Response({
-                            'error': f'Insufficient stock for {item.product.name}. Only {item.product.stock} available.'
-                        }, status=status.HTTP_400_BAD_REQUEST)
-                
-                # Calculate totals
-                subtotal = cart.total_price
-                total = subtotal + shipping_cost + tax
-                # Create order with all required fields
-                order = Order.objects.create(
-                    user=request.user,
-                    order_number=uuid.uuid4().hex[:12].upper(),
-                    status='pending',
-                    subtotal=subtotal,
-                    shipping_cost=shipping_cost,
-                    tax=tax,
-                    total=total,
-                    shipping_address=shipping_address,
-                    billing_address=billing_address
-                )
-                
-                # Create order items
-                for item in items:
-                    OrderItem.objects.create(
-                        order=order,
-                        product=item.product,
-                        quantity=item.quantity,
-                        price=item.price  # Use frozen price from cart
-                    )
-                    
-                    # Optional: Update product stock
-                    if hasattr(item.product, 'stock'):
-                        item.product.stock -= item.quantity
-                        item.product.save()
-                
-                # Clear the cart after successful order creation
-                items.delete()
-            
-            return Response({
-                'order_id': order.id,
-                'order_number': order.order_number,
-                'total': order.total
-            }, status=status.HTTP_201_CREATED)
-            
-        except Exception as e:
-            return Response({
-                'error': 'Failed to create order',
-                'detail': str(e)
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)

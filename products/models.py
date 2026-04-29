@@ -8,6 +8,7 @@ class Category(models.Model):
 
     class Meta:
         verbose_name_plural = "Categories"
+        ordering = ['name', 'id']
 
     def __str__(self):
         return self.name
@@ -32,6 +33,9 @@ class Product(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at', '-id']
 
     def save(self, *args, **kwargs):
         if not self.slug:

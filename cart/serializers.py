@@ -28,26 +28,52 @@ class CartItemSerializer(serializers.ModelSerializer):
                 'quantity': 'Quantity must be greater than zero'
             })
         
-        # Check stock availability
-        if hasattr(product, 'stock') and product.stock < quantity:
+        if not product.isActive or product.status != 'available':
             raise serializers.ValidationError({
-                'quantity': f'Only {product.stock} items available in stock'
+                'productId': 'This product is not available for purchase'
+            })
+
+        # Check stock availability
+        if product.inStock < quantity:
+            raise serializers.ValidationError({
+                'quantity': f'Only {product.inStock} items available in stock'
             })
         
         return data
     
     def create(self, validated_data):
-        # Freeze price when adding to cart
-        validated_data['price'] = validated_data['product'].price
-        return super().create(validated_data)
+        cart = validated_data['cart']
+        product = validated_data['product']
+        quantity = validated_data.get('quantity', 1)
+
+        item, created = CartItem.objects.get_or_create(
+            cart=cart,
+            product=product,
+            defaults={
+                'quantity': quantity,
+                'price': product.price,
+            },
+        )
+        if created:
+            return item
+
+        new_quantity = item.quantity + quantity
+        if product.inStock < new_quantity:
+            raise serializers.ValidationError({
+                'quantity': f'Only {product.inStock} items available in stock'
+            })
+
+        item.quantity = new_quantity
+        item.save(update_fields=['quantity'])
+        return item
     
     def update(self, instance, validated_data):
         # When updating quantity, check stock again
         if 'quantity' in validated_data:
             quantity = validated_data['quantity']
-            if hasattr(instance.product, 'stock') and instance.product.stock < quantity:
+            if instance.product.inStock < quantity:
                 raise serializers.ValidationError({
-                    'quantity': f'Only {instance.product.stock} items available in stock'
+                    'quantity': f'Only {instance.product.inStock} items available in stock'
                 })
         return super().update(instance, validated_data)
 
@@ -74,9 +100,9 @@ class CartItemUpdateSerializer(serializers.ModelSerializer):
             return instance
         
         # Check stock availability
-        if hasattr(instance.product, 'stock') and instance.product.stock < quantity:
+        if instance.product.inStock < quantity:
             raise serializers.ValidationError({
-                'quantity': f'Only {instance.product.stock} items available in stock'
+                'quantity': f'Only {instance.product.inStock} items available in stock'
             })
         
         instance.quantity = quantity
@@ -96,8 +122,24 @@ class CartSerializer(serializers.ModelSerializer):
 
 
 class CheckoutSerializer(serializers.Serializer):
-    shipping_address = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    shipping_address = serializers.CharField(max_length=255, allow_blank=False)
     billing_address = serializers.CharField(max_length=255, required=False, allow_blank=True)
-    shipping_cost = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, default=0.00)
-    tax = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, default=0.00)
-    
+    shipping_cost = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        required=False,
+        default=0.00,
+        min_value=0,
+    )
+    tax = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        required=False,
+        default=0.00,
+        min_value=0,
+    )
+
+    def validate(self, attrs):
+        if not attrs.get('billing_address'):
+            attrs['billing_address'] = attrs['shipping_address']
+        return attrs

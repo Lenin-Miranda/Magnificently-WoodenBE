@@ -26,8 +26,8 @@ class CartCheckoutAPITest(APITestCase):
             name='Test Product',
             description='A product for testing',
             price=Decimal('50.00'),
-            stock=10,
-            is_active=True
+            inStock=10,
+            isActive=True
         )
 
         # Get the cart that was automatically created by the signal
@@ -42,7 +42,6 @@ class CartCheckoutAPITest(APITestCase):
         self.payload = {
             'shipping_address': '123 Test St, Test City, TC 12345',
             'billing_address': '123 Test St, Test City, TC 12345',
-            'payment_method': 'credit_card',
             'shipping_cost': '5.00',
             'tax': '3.00',
         }
@@ -54,6 +53,7 @@ class CartCheckoutAPITest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(Order.objects.count(), 1)
         order = Order.objects.first()
+        self.assertEqual(response.data['id'], order.id)
         self.assertEqual(order.user, self.user)
         self.assertEqual(order.subtotal, Decimal('100.00'))  # 2 items x $50 each
         self.assertEqual(order.shipping_cost, Decimal('5.00'))
@@ -65,10 +65,13 @@ class CartCheckoutAPITest(APITestCase):
         
         # Verify stock is reduced
         self.product.refresh_from_db()
-        self.assertEqual(self.product.stock, 8)  # 10 - 2 = 8
+        self.assertEqual(self.product.inStock, 8)  # 10 - 2 = 8
         
         # Verify OrderItem was created
         self.assertEqual(OrderItem.objects.count(), 1)
+        order_item = OrderItem.objects.first()
+        self.assertEqual(order_item.product_name, self.product.name)
+        self.assertEqual(order_item.product_slug, self.product.slug)
     
     def test_checkout_insufficient_stock(self):
         '''Test checkout fails due to insufficient stock'''
@@ -81,6 +84,19 @@ class CartCheckoutAPITest(APITestCase):
         response = self.client.post(checkout_url, self.payload)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('Insufficient stock', response.data['error'])
+        self.assertEqual(Order.objects.count(), 0)
+
+    def test_checkout_rejects_unavailable_product(self):
+        '''Test checkout fails when product is unavailable'''
+        self.client.force_authenticate(user=self.user)
+        self.product.status = 'archived'
+        self.product.save(update_fields=['status'])
+
+        checkout_url = reverse('cart:cart-checkout')
+        response = self.client.post(checkout_url, self.payload)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('not available', response.data['error'])
         self.assertEqual(Order.objects.count(), 0)
 
     def test_checkout_empty_cart(self):
@@ -106,5 +122,4 @@ class CartCheckoutAPITest(APITestCase):
 
 
         
-
 

@@ -42,16 +42,16 @@ class ProductModelTest(TestCase):
             slug='laptop',
             description='A great laptop',
             price=Decimal('999.99'),
-            stock=10,
-            is_active=True,
-            is_featured=False
+            inStock=10,
+            isActive=True,
+            isFeatured=False
         )
     
     def test_product_creation(self):
         """Verificar que el producto se crea correctamente"""
         self.assertEqual(self.product.name, 'Laptop')
         self.assertEqual(self.product.price, Decimal('999.99'))
-        self.assertEqual(self.product.stock, 10)
+        self.assertEqual(self.product.inStock, 10)
         self.assertEqual(self.product.category, self.category)
     
     def test_product_str(self):
@@ -60,7 +60,7 @@ class ProductModelTest(TestCase):
     
     def test_product_is_active(self):
         """Verificar que el producto está activo por defecto"""
-        self.assertTrue(self.product.is_active)
+        self.assertTrue(self.product.isActive)
 
 
 class ProductAPITest(APITestCase):
@@ -78,8 +78,8 @@ class ProductAPITest(APITestCase):
             slug='laptop',
             description='A great laptop',
             price=Decimal('999.99'),
-            stock=10,
-            is_active=True
+            inStock=10,
+            isActive=True
         )
         
         # Crear usuario admin para tests de creación/edición
