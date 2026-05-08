@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
 from pathlib import Path
 from datetime import timedelta
 
@@ -17,16 +18,59 @@ from datetime import timedelta
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
+def load_env_file(env_path):
+    if not env_path.exists():
+        return
+
+    for raw_line in env_path.read_text().splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith('#') or '=' not in line:
+            continue
+
+        key, value = line.split('=', 1)
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        os.environ.setdefault(key, value)
+
+
+def env(key, default=None):
+    return os.getenv(key, default)
+
+
+def env_bool(key, default=False):
+    value = os.getenv(key)
+    if value is None:
+        return default
+    return value.strip().lower() in {'1', 'true', 'yes', 'on'}
+
+
+def env_int(key, default=0):
+    value = os.getenv(key)
+    if value is None:
+        return default
+    return int(value)
+
+
+def env_list(key, default=None):
+    value = os.getenv(key)
+    if value is None:
+        return list(default or [])
+    return [item.strip() for item in value.split(',') if item.strip()]
+
+
+load_env_file(BASE_DIR / '.env')
+
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-hzfyojf--mhp1fnfyo!(_)&+m9xg#gse3pb@+3^v7^fcb9paec'
+SECRET_KEY = env('SECRET_KEY', 'django-insecure-change-me')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = env_bool('DEBUG', True)
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0']
+ALLOWED_HOSTS = env_list('ALLOWED_HOSTS', ['localhost', '127.0.0.1', '0.0.0.0'])
 
 
 # Application definition
@@ -59,8 +103,12 @@ MIDDLEWARE = [
 ]
 
 # CORS Configuration
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = env_bool('CORS_ALLOW_ALL_ORIGINS', False)
 CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOWED_ORIGINS = env_list(
+    'CORS_ALLOWED_ORIGINS',
+    ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:5173'],
+)
 CORS_ALLOWED_HEADERS = [
     'accept',
     'accept-encoding',
@@ -82,7 +130,10 @@ CORS_ALLOW_METHODS = [
 ]
 
 # Disable CSRF for API endpoints
-CSRF_TRUSTED_ORIGINS = ['http://localhost:3000', 'http://127.0.0.1:3000']
+CSRF_TRUSTED_ORIGINS = env_list(
+    'CSRF_TRUSTED_ORIGINS',
+    ['http://localhost:3000', 'http://127.0.0.1:3000'],
+)
 
 ROOT_URLCONF = 'backend.urls'
 
@@ -109,12 +160,12 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'magnificentlyWoodenDB',
-        'USER': 'topwireless2020',
-        'PASSWORD': '1234',
-        'HOST': 'localhost',
-        'PORT': 5432,
+        'ENGINE': env('DB_ENGINE', 'django.db.backends.postgresql'),
+        'NAME': env('DB_NAME', 'magnificentlyWoodenDB'),
+        'USER': env('DB_USER', 'postgres'),
+        'PASSWORD': env('DB_PASSWORD', ''),
+        'HOST': env('DB_HOST', 'localhost'),
+        'PORT': env_int('DB_PORT', 5432),
     }
 }
 
@@ -182,9 +233,13 @@ REST_FRAMEWORK = {
 
 # Simple JWT Configuration
 
+STRIPE_SECRET_KEY = env('STRIPE_SECRET_KEY', '')
+STRIPE_WEBHOOK_SECRET = env('STRIPE_WEBHOOK_SECRET', '')
+STRIPE_PUBLISHABLE_KEY = env('STRIPE_PUBLISHABLE_KEY', '')
+
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=7),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=env_int('ACCESS_TOKEN_LIFETIME_MINUTES', 30)),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=env_int('REFRESH_TOKEN_LIFETIME_DAYS', 1)),
     'ROTATE_REFRESH_TOKENS': True,
     "BLACKLIST_AFTER_ROTATION": True,
     "AUTH_HEADER_TYPES": ("Bearer",),
